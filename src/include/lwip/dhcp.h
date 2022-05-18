@@ -57,16 +57,18 @@ struct dhcp
   ip_addr_t offered_ip_addr;
   ip_addr_t offered_sn_mask;
   ip_addr_t offered_gw_addr;
- 
+  ip_addr_t offered_bc_addr;
+  
   u32_t offered_t0_lease; /* lease period (in seconds) */
   u32_t offered_t1_renew; /* recommended renew time (usually 50% of lease period) */
-  u32_t offered_t2_rebind; /* recommended rebind time (usually 87.5 of lease period)  */
+  u32_t offered_t2_rebind; /* recommended rebind time (usually 87.5% of lease period)  */
   /* @todo: LWIP_DHCP_BOOTP_FILE configuration option?
      integrate with possible TFTP-client for booting? */
 #if LWIP_DHCP_BOOTP_FILE
   ip_addr_t offered_si_addr;
   char boot_file_name[DHCP_FILE_LEN];
 #endif /* LWIP_DHCP_BOOTPFILE */
+  u32_t seconds_elapsed;
 };
 
 /* MUST be compiled with "pack structs" or equivalent! */
@@ -171,7 +173,7 @@ void dhcp_fine_tmr(void);
 #define DHCP_CHECKING     8
 #define DHCP_PERMANENT    9
 #define DHCP_BOUND        10
-/** not yet implemented #define DHCP_RELEASING 11 */
+#define DHCP_RELEASING 11 //Realtek modified
 #define DHCP_BACKING_OFF  12
 
 /** AUTOIP cooperatation flags */
