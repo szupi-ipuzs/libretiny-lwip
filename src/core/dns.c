@@ -982,6 +982,27 @@ dns_check_entries(void)
 }
 
 /**
+ * Call dns_answer_ip_validate to check the IP in DNS answer is valid or not
+ */
+static u8_t 
+dns_answer_ip_validate(char *ptr)
+{
+  ip_addr_t ipaddr;
+  u32_t ntohl_addr;
+  
+  /* read the IP address after answer resource record's header */
+  SMEMCPY(&ipaddr, (ptr + SIZEOF_DNS_ANSWER), sizeof(ip_addr_t));
+  ntohl_addr = PP_NTOHL(ipaddr.addr);
+  
+  LWIP_DEBUGF(DNS_DEBUG, ("dns_validate_ip: "));
+  ip_addr_debug_print(DNS_DEBUG, (&ipaddr));
+  LWIP_DEBUGF(DNS_DEBUG, (", n:%x, h:%x\n", ipaddr.addr, ntohl_addr));
+
+  return ((ntohl_addr == IPADDR_ANY) || (ntohl_addr == IPADDR_LOOPBACK) || (ntohl_addr == IPADDR_BROADCAST) || 
+    IP_MULTICAST(ntohl_addr) || IP_BADCLASS(ntohl_addr)) ? 0 : 1;
+}
+
+/**
  * Receive input function for DNS response packets arriving for the dns UDP pcb.
  *
  * @params see udp.h
@@ -1036,7 +1057,7 @@ dns_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, ip_addr_t *addr, u16_t 
         nanswers   = htons(hdr->numanswers);
 
         /* Check for error. If so, call callback to inform. */
-        if (((hdr->flags1 & DNS_FLAG1_RESPONSE) == 0) || (dns_err != 0) || (nquestions != 1)) {
+        if (((hdr->flags1 & DNS_FLAG1_RESPONSE) == 0) || (nquestions != 1)) {
           LWIP_DEBUGF(DNS_DEBUG, ("dns_recv: \"%s\": error in flags\n", entry->name));
           /* call callback to indicate error, clean up memory and return */
           goto responseerr;
@@ -1068,6 +1089,22 @@ dns_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, ip_addr_t *addr, u16_t 
         /* skip the rest of the "question" part */
         ptr += SIZEOF_DNS_QUERY;
 
+        /* Check for error. If so, call callback to inform or change to next DNS server. */
+        if (dns_err != 0) {
+            LWIP_DEBUGF(DNS_DEBUG, ("dns_recv: \"%s\": error in flags\n", entry->name));
+            if ((entry->server_idx + 1 < DNS_MAX_SERVERS) && !ip_addr_isany(&dns_servers[entry->server_idx + 1])) {
+              /* change of server */
+              entry->server_idx++;
+              entry->tmr = 1;
+              entry->retries = 0;
+              entry->state = DNS_STATE_ASKING;
+              goto memerr; /* ignore this packet */
+            } else {
+              /* call callback to indicate error, clean up memory and return */
+              goto responseerr;                        
+            }            
+        }
+
         while (nanswers > 0) {
           /* skip answer resource record's host name */
           ptr = dns_parse_name(ptr);
@@ -1075,7 +1112,7 @@ dns_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, ip_addr_t *addr, u16_t 
           /* Check for IP address type and Internet class. Others are discarded. */
           SMEMCPY(&ans, ptr, SIZEOF_DNS_ANSWER);
           if((ans.type == PP_HTONS(DNS_RRTYPE_A)) && (ans.cls == PP_HTONS(DNS_RRCLASS_IN)) &&
-             (ans.len == PP_HTONS(sizeof(ip_addr_t))) ) {
+             (ans.len == PP_HTONS(sizeof(ip_addr_t))) && dns_answer_ip_validate(ptr)) {
             /* read the answer resource record's TTL, and maximize it if needed */
             entry->ttl = ntohl(ans.ttl);
             if (entry->ttl > DNS_MAX_TTL) {
