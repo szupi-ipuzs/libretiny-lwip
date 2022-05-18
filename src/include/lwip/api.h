@@ -54,6 +54,9 @@
 extern "C" {
 #endif
 
+#define port_netconn_recv(conn , buf, ret)  do{ret = netconn_recv(conn, &buf);}while(0);
+#define port_netconn_accept(conn , newconn, ret) do{ret = netconn_accept(conn, &newconn);}while(0);
+
 /* Throughout this file, IP addresses and port numbers are expected to be in
  * the same byte order as in the corresponding pcb.
  */
