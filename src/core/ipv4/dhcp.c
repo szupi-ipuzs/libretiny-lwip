@@ -70,6 +70,7 @@
 #include "lwip/ip_addr.h"
 #include "lwip/netif.h"
 #include "lwip/def.h"
+#include "lwip/sys.h"
 #include "lwip/dhcp.h"
 #include "lwip/autoip.h"
 #include "lwip/dns.h"
@@ -405,7 +406,9 @@ dhcp_coarse_tmr(void)
       if (dhcp->t0_timeout && (++dhcp->lease_used == dhcp->t0_timeout)) {
         LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("dhcp_coarse_tmr(): t0 timeout\n"));
         /* this clients' lease time has expired */
+        igmp_report_groups_leave(netif);	// not remove group to make able to report group when dhcp bind
         dhcp_release(netif);
+        netif->dhcp->seconds_elapsed = sys_now();        
         dhcp_discover(netif);
       /* timer is active (non zero), and triggers (zeroes) now? */
       } else if (dhcp->t2_rebind_time && (dhcp->t2_rebind_time-- == 1)) {
@@ -526,6 +529,7 @@ dhcp_t1_timeout(struct netif *netif)
                 ("dhcp_t1_timeout(): must renew\n"));
     /* This slightly different to RFC2131: DHCPREQUEST will be sent from state
        DHCP_STATE_RENEWING, not DHCP_STATE_BOUND */
+    dhcp->seconds_elapsed = sys_now();       
     dhcp_renew(netif);
     /* Calculate next timeout */
     if (((dhcp->t2_timeout - dhcp->lease_used) / 2) >= ((60 + DHCP_COARSE_TIMER_SECS / 2) / DHCP_COARSE_TIMER_SECS))
@@ -744,6 +748,11 @@ dhcp_start(struct netif *netif)
     /* dhcp is cleared below, no need to reset flag*/
   }
 
+#if DHCP_CREATE_RAND_XID && defined(LWIP_SRAND)
+  /* For each system startup, fill in a random seed with different system ticks. */
+  LWIP_SRAND();
+#endif /* DHCP_CREATE_RAND_XID && defined(LWIP_SRAND) */
+
   /* clear data structure */
   memset(dhcp, 0, sizeof(struct dhcp));
   /* dhcp_set_state(&dhcp, DHCP_STATE_OFF); */
@@ -765,6 +774,7 @@ dhcp_start(struct netif *netif)
 
 
   /* (re)start the DHCP negotiation */
+  dhcp->seconds_elapsed = sys_now();  
   result = dhcp_discover(netif);
   if (result != ERR_OK) {
     /* free resources allocated above */
@@ -915,6 +925,9 @@ dhcp_decline(struct netif *netif)
     dhcp_option(dhcp, DHCP_OPTION_REQUESTED_IP, 4);
     dhcp_option_long(dhcp, lwip_ntohl(ip4_addr_get_u32(&dhcp->offered_ip_addr)));
 
+    dhcp_option(dhcp, DHCP_OPTION_SERVER_ID, 4);
+    dhcp_option_long(dhcp, lwip_ntohl(ip4_addr_get_u32(&dhcp->server_ip_addr)));
+
     dhcp_option_trailer(dhcp);
     /* resize pbuf to reflect true size of options */
     pbuf_realloc(dhcp->p_out, sizeof(struct dhcp_msg) - DHCP_OPTIONS_LEN + dhcp->options_out_len);
@@ -1055,11 +1068,6 @@ dhcp_bind(struct netif *netif)
     }
     LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("dhcp_bind(): set request timeout %"U32_F" msecs\n", dhcp->offered_t2_rebind*1000));
     dhcp->t2_rebind_time = dhcp->t2_timeout;
-  }
-
-  /* If we have sub 1 minute lease, t2 and t1 will kick in at the same time. */
-  if ((dhcp->t1_timeout >= dhcp->t2_timeout) && (dhcp->t2_timeout > 0)) {
-    dhcp->t1_timeout = 0;
   }
 
   if (dhcp->subnet_mask_given) {
@@ -1255,6 +1263,21 @@ dhcp_reboot(struct netif *netif)
   return result;
 }
 
+/** check if DHCP supplied netif->ip_addr
+ *
+ * @param netif the netif to check
+ * @return 1 if DHCP supplied netif->ip_addr (states BOUND or RENEWING),
+ *         0 otherwise
+ */
+u8_t
+dhcp_supplied_address(const struct netif *netif)
+{
+  if ((netif != NULL) && (netif->dhcp != NULL)) {
+    struct dhcp* dhcp = netif->dhcp;
+    return (dhcp->state == DHCP_BOUND) || (dhcp->state == DHCP_RENEWING);
+  }
+  return 0;
+}
 
 /**
  * @ingroup dhcp4
@@ -1267,6 +1290,7 @@ dhcp_release(struct netif *netif)
 {
   struct dhcp *dhcp = netif_dhcp_data(netif);
   err_t result;
+  u16_t msecs;
   ip_addr_t server_ip_addr;
   u8_t is_dhcp_supplied_address;
 
@@ -1836,7 +1860,11 @@ dhcp_create_msg(struct netif *netif, struct dhcp *dhcp, u8_t message_type)
   dhcp->msg_out->hlen = netif->hwaddr_len;
   dhcp->msg_out->hops = 0;
   dhcp->msg_out->xid = lwip_htonl(dhcp->xid);
-  dhcp->msg_out->secs = 0;
+  if ((message_type == DHCP_DISCOVER) || (message_type == DHCP_REQUEST)) {
+    dhcp->msg_out->secs = (uint16_t)((sys_now() - dhcp->seconds_elapsed) / configTICK_RATE_HZ);
+  } else {
+    dhcp->msg_out->secs = 0;
+  }
   /* we don't need the broadcast flag since we can receive unicast traffic
      before being fully configured! */
   dhcp->msg_out->flags = 0;

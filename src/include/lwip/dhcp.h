@@ -95,6 +95,7 @@ struct dhcp
   ip4_addr_t offered_ip_addr;
   ip4_addr_t offered_sn_mask;
   ip4_addr_t offered_gw_addr;
+  ip4_addr_t offered_bc_addr;
 
   u32_t offered_t0_lease; /* lease period (in seconds) */
   u32_t offered_t1_renew; /* recommended renew time (usually 50% of lease period) */
@@ -103,6 +104,7 @@ struct dhcp
   ip4_addr_t offered_si_addr;
   char boot_file_name[DHCP_BOOT_FILE_LEN];
 #endif /* LWIP_DHCP_BOOTPFILE */
+  u32_t seconds_elapsed;
 };
 
 
