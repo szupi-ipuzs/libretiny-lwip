@@ -733,6 +733,11 @@ etharp_input(struct pbuf *p, struct netif *netif)
       LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: we are unconfigured, ARP request ignored.\n"));
     /* request was not directed to us */
     } else {
+ #ifdef CONFIG_DONT_CARE_TP
+    if(netif->flags & NETIF_FLAG_IPSWITCH)
+      netif->linkoutput(netif, p);
+    else
+#endif
       /* { for_us == 0 and netif->ip_addr.addr != 0 } */
       LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: ARP request was not for us.\n"));
     }
@@ -747,6 +752,10 @@ etharp_input(struct pbuf *p, struct netif *netif)
      * @todo How should we handle redundant (fail-over) interfaces? */
     dhcp_arp_reply(netif, &sipaddr);
 #endif /* (LWIP_DHCP && DHCP_DOES_ARP_CHECK) */
+#ifdef CONFIG_DONT_CARE_TP
+    if(netif->flags & NETIF_FLAG_IPSWITCH)
+      netif->linkoutput(netif, p);
+#endif
     break;
   default:
     LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: ARP unknown opcode type %"S16_F"\n", lwip_htons(hdr->opcode)));

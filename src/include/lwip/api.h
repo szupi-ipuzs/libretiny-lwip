@@ -325,6 +325,8 @@ err_t   netconn_write_partly(struct netconn *conn, const void *dataptr, size_t s
 err_t   netconn_close(struct netconn *conn);
 err_t   netconn_shutdown(struct netconn *conn, u8_t shut_rx, u8_t shut_tx);
 
+err_t             netconn_abort(struct netconn *conn);//Realtek add
+
 #if LWIP_IGMP || (LWIP_IPV6 && LWIP_IPV6_MLD)
 err_t   netconn_join_leave_group(struct netconn *conn, const ip_addr_t *multiaddr,
                              const ip_addr_t *netif_addr, enum netconn_igmp join_or_leave);

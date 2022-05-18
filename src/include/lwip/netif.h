@@ -147,6 +147,9 @@ enum netif_mac_filter_action {
   NETIF_ADD_MAC_FILTER = 1
 };
 
+#ifdef CONFIG_DONT_CARE_TP
+#define NETIF_FLAG_IPSWITCH       0x100U
+#endif
 /** Function prototype for netif init functions. Set up flags and output/linkoutput
  * callback functions in this function.
  *

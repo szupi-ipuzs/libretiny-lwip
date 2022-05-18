@@ -2692,6 +2692,77 @@ lwip_fcntl(int s, int cmd, int val)
   return ret;
 }
 
+/**************************************************************
+*                           Added  by Realtek       Begin                     *
+**************************************************************/
+int lwip_allocsocketsd()
+{
+  struct netconn *conn;
+  int i;
+  
+  /*new a netconn due to avoid some socket->conn check*/
+  conn = netconn_new_with_proto_and_callback(NETCONN_RAW, 0, NULL);
+  if (!conn) {
+    printf("\r\n could not create netconn");
+    return -1;
+  }
+  
+  /*alloc a socket*/
+  i = alloc_socket(conn, 1);
+  if (i == -1) {
+    netconn_delete(conn);
+    printf("\r\n alloc socket fail!");
+    return -1;
+  }
+  
+  conn->socket = i;
+  return i;
+}
+void lwip_setsockrcvevent(int fd, int rcvevent)
+{
+	struct lwip_sock *sock = get_socket(fd);
+
+	if(sock){
+		if(rcvevent)
+			sock->rcvevent = 1;
+		else
+			sock->rcvevent = 0;
+	}
+}
+void lwip_selectevindicate(int fd)
+{
+  struct lwip_select_cb *scb;
+  struct lwip_sock *sock;
+  
+  sock = get_socket(fd);
+  SYS_ARCH_DECL_PROTECT(lev);
+  while (1) {
+    SYS_ARCH_PROTECT(lev);
+    for (scb = select_cb_list; scb; scb = scb->next) {
+      if (scb->sem_signalled == 0) {
+        /* Test this select call for our socket */
+        if (scb->readset && FD_ISSET(fd, scb->readset))
+          if (sock->rcvevent > 0)
+            break;
+        if (scb->writeset && FD_ISSET(fd, scb->writeset))
+          if (sock->sendevent)
+            break;
+      }
+    }
+    if (scb) {
+      scb->sem_signalled = 1;
+      sys_sem_signal(&scb->sem);
+      SYS_ARCH_UNPROTECT(lev);
+    } else {
+      SYS_ARCH_UNPROTECT(lev);
+      break;
+    }
+  }
+}
+/**************************************************************
+*                           Added  by Realtek        end                    *
+**************************************************************/
+
 #if LWIP_IGMP
 /** Register a new IGMP membership. On socket close, the membership is dropped automatically.
  *

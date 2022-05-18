@@ -451,7 +451,7 @@
  * (only needed if you use the sequential API, like api_lib.c)
  */
 #if !defined MEMP_NUM_NETCONN || defined __DOXYGEN__
-#define MEMP_NUM_NETCONN                4
+#define MEMP_NUM_NETCONN                8
 #endif
 
 /**
@@ -900,7 +900,7 @@
  * LWIP_AUTOIP==1: Enable AUTOIP module.
  */
 #if !defined LWIP_AUTOIP || defined __DOXYGEN__
-#define LWIP_AUTOIP                     0
+#define LWIP_AUTOIP                     1 //Realtek modified (0->1)
 #endif
 #if !LWIP_IPV4
 /* disable AUTOIP when IPv4 is disabled */
@@ -1520,7 +1520,7 @@
  * TCPIP_THREAD_NAME: The name assigned to the main tcpip thread.
  */
 #if !defined TCPIP_THREAD_NAME || defined __DOXYGEN__
-#define TCPIP_THREAD_NAME              "tcpip_thread"
+#define TCPIP_THREAD_NAME              "TCP_IP" //Realtek modified ("tcpip_thread"->"TCP_IP")
 #endif
 
 /**
@@ -1776,7 +1776,7 @@
  * SO_RCVTIMEO processing.
  */
 #if !defined LWIP_SO_RCVTIMEO || defined __DOXYGEN__
-#define LWIP_SO_RCVTIMEO                0
+#define LWIP_SO_RCVTIMEO                1 //Realtek modified(0->1)
 #endif
 
 /**
@@ -1819,7 +1819,7 @@
  * SO_REUSE==1: Enable SO_REUSEADDR option.
  */
 #if !defined SO_REUSE || defined __DOXYGEN__
-#define SO_REUSE                        0
+#define SO_REUSE                        1
 #endif
 
 /**
@@ -2014,6 +2014,7 @@
 #define MLD6_STATS                      0
 #define ND6_STATS                       0
 #define MIB2_STATS                      0
+#define ETHARP_STATS                    0 //Realtek add
 
 #endif /* LWIP_STATS */
 /**
