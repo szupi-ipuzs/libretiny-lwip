@@ -94,6 +94,9 @@ extern "C" {
  * Set by the netif driver in its init function. */
 #define NETIF_FLAG_IGMP         0x80U
 
+#ifdef CONFIG_DONT_CARE_TP
+#define NETIF_FLAG_IPSWITCH       0x100U
+#endif
 /** Function prototype for netif init functions. Set up flags and output/linkoutput
  * callback functions in this function.
  *

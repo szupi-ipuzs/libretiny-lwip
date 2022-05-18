@@ -329,7 +329,7 @@
  * (only needed if you use the sequential API, like api_lib.c)
  */
 #ifndef MEMP_NUM_NETCONN
-#define MEMP_NUM_NETCONN                4
+#define MEMP_NUM_NETCONN                8
 #endif
 
 /**
@@ -698,7 +698,7 @@
  * LWIP_AUTOIP==1: Enable AUTOIP module.
  */
 #ifndef LWIP_AUTOIP
-#define LWIP_AUTOIP                     0
+#define LWIP_AUTOIP                     1 //Realtek modified (0->1)
 #endif
 
 /**
@@ -1238,7 +1238,7 @@
  * TCPIP_THREAD_NAME: The name assigned to the main tcpip thread.
  */
 #ifndef TCPIP_THREAD_NAME
-#define TCPIP_THREAD_NAME              "tcpip_thread"
+#define TCPIP_THREAD_NAME              "TCP_IP" //Realtek modified ("tcpip_thread"->"TCP_IP")
 #endif
 
 /**
@@ -1465,7 +1465,7 @@
  * SO_RCVTIMEO processing.
  */
 #ifndef LWIP_SO_RCVTIMEO
-#define LWIP_SO_RCVTIMEO                0
+#define LWIP_SO_RCVTIMEO                1 //Realtek modified(0->1)
 #endif
 
 /**
@@ -1486,7 +1486,7 @@
  * SO_REUSE==1: Enable SO_REUSEADDR option.
  */
 #ifndef SO_REUSE
-#define SO_REUSE                        0
+#define SO_REUSE                        1
 #endif
 
 /**
@@ -1612,6 +1612,7 @@
 #define MEMP_STATS                      0
 #define SYS_STATS                       0
 #define LWIP_STATS_DISPLAY              0
+#define ETHARP_STATS                    0 //Realtek add
 
 #endif /* LWIP_STATS */
 

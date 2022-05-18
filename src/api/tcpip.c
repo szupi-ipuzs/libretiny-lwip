@@ -49,6 +49,8 @@
 #include "netif/etharp.h"
 #include "netif/ppp_oe.h"
 
+#include "osdep_service.h"
+
 /* global variables */
 static tcpip_init_done_fn tcpip_init_done;
 static void *tcpip_init_done_arg;
@@ -312,10 +314,14 @@ tcpip_apimsg(struct api_msg *apimsg)
 #endif
   
   if (sys_mbox_valid(&mbox)) {
+    UBaseType_t prio = uxTaskPriorityGet(NULL);       // add to prevent switch to tcpip thread between mbox post and sem wait
+    if((TCPIP_THREAD_PRIO + 1) > prio)
+      vTaskPrioritySet(NULL, TCPIP_THREAD_PRIO + 1);  // set priority higher than tcpip thread
     msg.type = TCPIP_MSG_API;
     msg.msg.apimsg = apimsg;
     sys_mbox_post(&mbox, &msg);
     sys_arch_sem_wait(&apimsg->msg.conn->op_completed, 0);
+    vTaskPrioritySet(NULL, prio);                     // restore to original priority
     return apimsg->msg.err;
   }
   return ERR_VAL;
@@ -466,8 +472,11 @@ tcpip_init(tcpip_init_done_fn initfunc, void *arg)
     LWIP_ASSERT("failed to create lock_tcpip_core", 0);
   }
 #endif /* LWIP_TCPIP_CORE_LOCKING */
-
-  sys_thread_new(TCPIP_THREAD_NAME, tcpip_thread, NULL, TCPIP_THREAD_STACKSIZE, TCPIP_THREAD_PRIO);
+#if CONFIG_USE_TCM_HEAP
+	sys_thread_new_tcm(TCPIP_THREAD_NAME, tcpip_thread, NULL, TCPIP_THREAD_STACKSIZE, TCPIP_THREAD_PRIO);
+#else
+	sys_thread_new(TCPIP_THREAD_NAME, tcpip_thread, NULL, TCPIP_THREAD_STACKSIZE, TCPIP_THREAD_PRIO);
+#endif
 }
 
 /**

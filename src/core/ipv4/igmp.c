@@ -278,6 +278,20 @@ igmp_report_groups(struct netif *netif)
   }
 }
 
+/* Realtek added to only send igmp leave, but not remove group */
+void
+igmp_report_groups_leave(struct netif *netif)
+{
+  struct igmp_group *group = igmp_group_list;
+
+  while (group != NULL) {
+    if ((group->netif == netif) && (!ip_addr_cmp(&group->group_address, &allsystems)) && (group->last_reporter_flag)) {
+      igmp_send(group, IGMP_LEAVE_GROUP);
+    }
+    group = group->next;
+  }
+}
+
 /**
  * Search for a group in the global igmp_group_list
  *
