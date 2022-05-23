@@ -1111,17 +1111,6 @@ dns_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, 
         /* Check for error. If so, call callback to inform. */
         if (hdr.flags2 & DNS_FLAG2_ERR_MASK) {
           LWIP_DEBUGF(DNS_DEBUG, ("dns_recv: \"%s\": error in flags\n", entry->name));
-          if ((entry->server_idx + 1 < DNS_MAX_SERVERS) && !ip_addr_isany(&dns_servers[entry->server_idx + 1])) {
-            /* change of server */
-            entry->server_idx++;
-            entry->tmr = 1;
-            entry->retries = 0;
-            entry->state = DNS_STATE_ASKING;
-            goto memerr; /* ignore this packet */
-          } else {
-            /* call callback to indicate error, clean up memory and return */
-            goto responseerr;                        
-          }            
         } else {
           while ((nanswers > 0) && (res_idx < p->tot_len)) {
             /* skip answer resource record's host name */

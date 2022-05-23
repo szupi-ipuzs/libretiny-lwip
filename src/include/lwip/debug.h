@@ -39,7 +39,7 @@
 
 #include "lwip/arch.h"
 #include "lwip/opt.h"
-#include <stdio.h> //Realtek add
+
 /** lower two bits indicate debug level
  * - 0 all
  * - 1 warning
@@ -102,9 +102,6 @@
 /** print debug message only if debug message type is enabled...
  *  AND is of correct type AND is at least LWIP_DBG_LEVEL
  */
-
-
-#define LWIP_PLATFORM_DIAG printf //Realtek add
 #define LWIP_DEBUGF(debug, message) do { \
                                if ( \
                                    ((debug) & LWIP_DBG_ON) && \

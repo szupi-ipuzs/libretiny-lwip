@@ -408,7 +408,7 @@ dhcp_coarse_tmr(void)
         /* this clients' lease time has expired */
         igmp_report_groups_leave(netif);	// not remove group to make able to report group when dhcp bind
         dhcp_release(netif);
-        netif->dhcp->seconds_elapsed = sys_now();        
+        dhcp->seconds_elapsed = sys_now();
         dhcp_discover(netif);
       /* timer is active (non zero), and triggers (zeroes) now? */
       } else if (dhcp->t2_rebind_time && (dhcp->t2_rebind_time-- == 1)) {
@@ -1261,22 +1261,6 @@ dhcp_reboot(struct netif *netif)
   dhcp->request_timeout = (msecs + DHCP_FINE_TIMER_MSECS - 1) / DHCP_FINE_TIMER_MSECS;
   LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("dhcp_reboot(): set request timeout %"U16_F" msecs\n", msecs));
   return result;
-}
-
-/** check if DHCP supplied netif->ip_addr
- *
- * @param netif the netif to check
- * @return 1 if DHCP supplied netif->ip_addr (states BOUND or RENEWING),
- *         0 otherwise
- */
-u8_t
-dhcp_supplied_address(const struct netif *netif)
-{
-  if ((netif != NULL) && (netif->dhcp != NULL)) {
-    struct dhcp* dhcp = netif->dhcp;
-    return (dhcp->state == DHCP_BOUND) || (dhcp->state == DHCP_RENEWING);
-  }
-  return 0;
 }
 
 /**
