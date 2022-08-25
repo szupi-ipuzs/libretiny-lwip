@@ -49,6 +49,7 @@
 #include "lwip/pbuf.h"
 #include "lwip/etharp.h"
 #include "netif/ethernet.h"
+#include "lwip/debug.h"
 
 #define TCPIP_MSG_VAR_REF(name)     API_VAR_REF(name)
 #define TCPIP_MSG_VAR_DECLARE(name) API_VAR_DECLARE(struct tcpip_msg, name)
@@ -89,6 +90,7 @@ tcpip_thread(void *arg)
   struct tcpip_msg *msg;
   LWIP_UNUSED_ARG(arg);
 
+  LWIP_DEBUGF(TCPIP_DEBUG, ("tcpip_thread start\n"));
   if (tcpip_init_done != NULL) {
     tcpip_init_done(tcpip_init_done_arg);
   }
@@ -179,9 +181,10 @@ tcpip_inpkt(struct pbuf *p, struct netif *inp, netif_input_fn input_fn)
   struct tcpip_msg *msg;
 
   LWIP_ASSERT("Invalid mbox", sys_mbox_valid_val(mbox));
-
+  LWIP_DEBUGF(TCPIP_DEBUG, ("tcpip_inpkt: PACKET %p/%p\n", (void *)p, (void *)inp));
   msg = (struct tcpip_msg *)memp_malloc(MEMP_TCPIP_MSG_INPKT);
   if (msg == NULL) {
+  	LWIP_DEBUGF(TCPIP_DEBUG, ("memp malloc fail\n"));
     return ERR_MEM;
   }
 
@@ -191,6 +194,7 @@ tcpip_inpkt(struct pbuf *p, struct netif *inp, netif_input_fn input_fn)
   msg->msg.inp.input_fn = input_fn;
   if (sys_mbox_trypost(&mbox, msg) != ERR_OK) {
     memp_free(MEMP_TCPIP_MSG_INPKT, msg);
+	LWIP_DEBUGF(TCPIP_DEBUG, ("mbox trypost fail\n"));
     return ERR_MEM;
   }
   return ERR_OK;
@@ -463,6 +467,7 @@ tcpip_init(tcpip_init_done_fn initfunc, void *arg)
 {
   lwip_init();
 
+  LWIP_DEBUGF(TCPIP_DEBUG, ("tcpip_init\n"));
   tcpip_init_done = initfunc;
   tcpip_init_done_arg = arg;
   if (sys_mbox_new(&mbox, TCPIP_MBOX_SIZE) != ERR_OK) {
