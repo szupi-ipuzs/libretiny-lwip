@@ -1039,40 +1039,45 @@ tcp_slowtmr_start:
         }
       } else {
         /* Increase the retransmission timer if it is running */
-        if (pcb->rtime >= 0) {
+        if ((pcb->rtime >= 0) && (pcb->rtime < 0x7FFF)) {
           ++pcb->rtime;
         }
 
-        if (pcb->unacked != NULL && pcb->rtime >= pcb->rto) {
+        if (pcb->rtime >= pcb->rto) {
           /* Time for a retransmission. */
           LWIP_DEBUGF(TCP_RTO_DEBUG, ("tcp_slowtmr: rtime %"S16_F
                                       " pcb->rto %"S16_F"\n",
                                       pcb->rtime, pcb->rto));
+          /* If prepare phase fails but we have unsent data but no unacked data,
+             still execute the backoff calculations below, as this means we somehow
+             failed to send segment. */
+          if ((tcp_rexmit_rto_prepare(pcb) == ERR_OK) || ((pcb->unacked == NULL) && (pcb->unsent != NULL))) {
+            /* Double retransmission time-out unless we are trying to
+             * connect to somebody (i.e., we are in SYN_SENT). */
+            if (pcb->state != SYN_SENT) {
+              u8_t backoff_idx = LWIP_MIN(pcb->nrtx, sizeof(tcp_backoff) - 1);
+              int calc_rto = ((pcb->sa >> 3) + pcb->sv) << tcp_backoff[backoff_idx];
+              pcb->rto = (s16_t)LWIP_MIN(calc_rto, 0x7FFF);
+            }
 
-          /* Double retransmission time-out unless we are trying to
-           * connect to somebody (i.e., we are in SYN_SENT). */
-          if (pcb->state != SYN_SENT) {
-            u8_t backoff_idx = LWIP_MIN(pcb->nrtx, sizeof(tcp_backoff)-1);
-            pcb->rto = ((pcb->sa >> 3) + pcb->sv) << tcp_backoff[backoff_idx];
+            /* Reset the retransmission timer. */
+            pcb->rtime = 0;
+
+            /* Reduce congestion window and ssthresh. */
+            eff_wnd = LWIP_MIN(pcb->cwnd, pcb->snd_wnd);
+            pcb->ssthresh = eff_wnd >> 1;
+            if (pcb->ssthresh < (tcpwnd_size_t)(pcb->mss << 1)) {
+              pcb->ssthresh = (tcpwnd_size_t)(pcb->mss << 1);
+            }
+            pcb->cwnd = pcb->mss;
+            LWIP_DEBUGF(TCP_CWND_DEBUG, ("tcp_slowtmr: cwnd %"TCPWNDSIZE_F
+                                         " ssthresh %"TCPWNDSIZE_F"\n",
+                                         pcb->cwnd, pcb->ssthresh));
+
+            /* The following needs to be called AFTER cwnd is set to one
+               mss - STJ */
+            tcp_rexmit_rto_commit(pcb);
           }
-
-          /* Reset the retransmission timer. */
-          pcb->rtime = 0;
-
-          /* Reduce congestion window and ssthresh. */
-          eff_wnd = LWIP_MIN(pcb->cwnd, pcb->snd_wnd);
-          pcb->ssthresh = eff_wnd >> 1;
-          if (pcb->ssthresh < (tcpwnd_size_t)(pcb->mss << 1)) {
-            pcb->ssthresh = (pcb->mss << 1);
-          }
-          pcb->cwnd = pcb->mss;
-          LWIP_DEBUGF(TCP_CWND_DEBUG, ("tcp_slowtmr: cwnd %"TCPWNDSIZE_F
-                                       " ssthresh %"TCPWNDSIZE_F"\n",
-                                       pcb->cwnd, pcb->ssthresh));
-
-          /* The following needs to be called AFTER cwnd is set to one
-             mss - STJ */
-          tcp_rexmit_rto(pcb);
         }
       }
     }
