@@ -40,6 +40,7 @@
 #define LWIP_HDR_SOCKETS_H
 
 #include "lwip/opt.h"
+#include "mem_pub.h"
 
 #if LWIP_SOCKET /* don't build if not configured for use in lwipopts.h */
 
@@ -476,7 +477,7 @@ typedef struct ipv6_mreq {
 #define FD_SET(n, p)  FDSETSAFESET(n, (p)->fd_bits[((n)-LWIP_SOCKET_OFFSET)/8] = (u8_t)((p)->fd_bits[((n)-LWIP_SOCKET_OFFSET)/8] |  (1 << (((n)-LWIP_SOCKET_OFFSET) & 7))))
 #define FD_CLR(n, p)  FDSETSAFESET(n, (p)->fd_bits[((n)-LWIP_SOCKET_OFFSET)/8] = (u8_t)((p)->fd_bits[((n)-LWIP_SOCKET_OFFSET)/8] & ~(1 << (((n)-LWIP_SOCKET_OFFSET) & 7))))
 #define FD_ISSET(n,p) FDSETSAFEGET(n, (p)->fd_bits[((n)-LWIP_SOCKET_OFFSET)/8] &   (1 << (((n)-LWIP_SOCKET_OFFSET) & 7)))
-#define FD_ZERO(p)    memset((void*)(p), 0, sizeof(*(p)))
+#define FD_ZERO(p)    os_memset((void*)(p), 0, sizeof(*(p)))
 
 typedef struct fd_set
 {
