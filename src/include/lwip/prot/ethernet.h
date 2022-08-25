@@ -124,6 +124,7 @@ enum eth_type {
   ETHTYPE_PPPOE     = 0x8864U,
   /** Jumbo Frames */
   ETHTYPE_JUMBO     = 0x8870U,
+  ETHTYPE_EAPOL     = 0x888EU,
   /** Process field network */
   ETHTYPE_PROFINET  = 0x8892U,
   /** Ethernet for control automation technology */
