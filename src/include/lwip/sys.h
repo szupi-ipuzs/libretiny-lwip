@@ -38,6 +38,7 @@
 #define LWIP_HDR_SYS_H
 
 #include "lwip/opt.h"
+#include "rtos_pub.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -119,6 +120,8 @@ typedef void (*lwip_thread_fn)(void *arg);
 #define sys_mutex_set_invalid(mutex)  sys_sem_set_invalid(mutex)
 
 #else /* LWIP_COMPAT_MUTEX */
+
+typedef beken_mutex_t sys_mutex_t;
 
 /**
  * @ingroup sys_mutex

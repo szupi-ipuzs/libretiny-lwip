@@ -78,6 +78,12 @@
 
 #include <string.h>
 
+#include "error.h"
+#include "fake_clock_pub.h"
+#include "rtos_pub.h"
+#include "role_launch.h"
+#include "wlan_ui_pub.h"
+
 /** DHCP_CREATE_RAND_XID: if this is set to 1, the xid is created using
  * LWIP_RAND() (this overrides DHCP_GLOBAL_XID)
  */
@@ -162,6 +168,7 @@ static u8_t dhcp_discover_request_options[] = {
 static u32_t xid;
 static u8_t xid_initialised;
 #endif /* DHCP_GLOBAL_XID */
+static beken2_timer_t dhcp_tmr = {0};
 
 #define dhcp_option_given(dhcp, idx)          (dhcp_rx_options_given[idx] != 0)
 #define dhcp_got_option(dhcp, idx)            (dhcp_rx_options_given[idx] = 1)
@@ -704,6 +711,67 @@ void dhcp_cleanup(struct netif *netif)
   }
 }
 
+void dhcp_check_status(void)
+{
+	struct netif *netif = netif_list;
+
+	while (netif != NULL) {
+		struct dhcp *dhcp = netif_dhcp_data(netif);
+		if(dhcp != NULL){
+			if(dhcp->state != DHCP_STATE_BOUND){
+				bk_wlan_connection_loss();
+			}
+		}
+		netif = netif->next;
+	}
+}
+
+void dhcp_stop_timeout_check(void)
+{
+    OSStatus ret = kNoErr;
+	
+	if(rtos_is_oneshot_timer_init(&dhcp_tmr))
+	{
+	    if (rtos_is_oneshot_timer_running(&dhcp_tmr)) 
+		{
+	        ret = rtos_stop_oneshot_timer(&dhcp_tmr);
+			ASSERT(kNoErr == ret);
+	    }
+
+	    ret = rtos_deinit_oneshot_timer(&dhcp_tmr);
+		ASSERT(kNoErr == ret);
+	}
+}
+
+void dhcp_start_timeout_check(u32_t secs, u32_t usecs)
+{
+    OSStatus err = kNoErr;
+	u32_t clk_time;
+
+	clk_time = (secs * 1000 + usecs / 1000 );
+
+	if(rtos_is_oneshot_timer_init(&dhcp_tmr))
+	{
+		os_printf("dhcp_check_status_reload_timer\r\n\r\n");
+		rtos_oneshot_reload_timer(&dhcp_tmr);
+	}
+	else
+	{
+		err = rtos_init_oneshot_timer(&dhcp_tmr, 
+										clk_time, 
+										(timer_2handler_t)dhcp_check_status, 
+										NULL, 
+										NULL);
+		ASSERT(kNoErr == err);
+		
+		err = rtos_start_oneshot_timer(&dhcp_tmr);
+		ASSERT(kNoErr == err);
+		os_printf("\r\ndhcp_check_status_init_timer:%d\r\n", clk_time);
+	}		
+
+	return;
+}
+
 /**
  * @ingroup dhcp4
  * Start DHCP negotiation for a network interface.
@@ -722,6 +790,9 @@ dhcp_start(struct netif *netif)
 {
   struct dhcp *dhcp;
   err_t result;
+
+  /*if dhcp can't get IP, will rescan after 10 seconds.*/
+  dhcp_start_timeout_check(20, 0);
 
   LWIP_ERROR("netif != NULL", (netif != NULL), return ERR_ARG;);
   LWIP_ERROR("netif is not up, old style port?", netif_is_up(netif), return ERR_ARG;);
@@ -777,6 +848,12 @@ dhcp_start(struct netif *netif)
   }
 #endif /* LWIP_DHCP_CHECK_LINK_UP */
 
+#if CFG_ROLE_LAUNCH
+	  if(rl_pre_sta_set_status(RL_STATUS_STA_DHCPING))
+	  {
+		  return -1;
+	  }
+#endif
 
   /* (re)start the DHCP negotiation */
   result = dhcp_discover(netif);
@@ -979,6 +1056,11 @@ dhcp_discover(struct netif *netif)
     for (i = 0; i < LWIP_ARRAYSIZE(dhcp_discover_request_options); i++) {
       dhcp_option_byte(dhcp, dhcp_discover_request_options[i]);
     }
+	
+#if LWIP_NETIF_HOSTNAME
+	dhcp_option_hostname(dhcp, netif);
+#endif /* LWIP_NETIF_HOSTNAME */
+
     dhcp_option_trailer(dhcp);
 
     LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE, ("dhcp_discover: realloc()ing\n"));
@@ -1001,7 +1083,16 @@ dhcp_discover(struct netif *netif)
     autoip_start(netif);
   }
 #endif /* LWIP_DHCP_AUTOIP_COOP */
+  /* For WiFi, it's not that hard to miss a DISCOVER/OFFER packet, especially
+   * when the AP replies the OFFER as broadcast frame in weak RSSI environment.
+   * so lower the discover retry backoff time from (2,4,8,16,32,60,60)s to
+   * (0.5,1,2,4,8,15,15)s.
+   **/
+#if BK_DHCP
+  msecs = (dhcp->tries < 6 ? 1 << dhcp->tries : 60) * 250;
+#else
   msecs = (dhcp->tries < 6 ? 1 << dhcp->tries : 60) * 1000;
+#endif
   dhcp->request_timeout = (msecs + DHCP_FINE_TIMER_MSECS - 1) / DHCP_FINE_TIMER_MSECS;
   LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("dhcp_discover(): set request timeout %"U16_F" msecs\n", msecs));
   return result;
@@ -1113,6 +1204,8 @@ dhcp_bind(struct netif *netif)
      to ensure the callback can use dhcp_supplied_address() */
   dhcp_set_state(dhcp, DHCP_STATE_BOUND);
 
+  dhcp_stop_timeout_check();
+  
   netif_set_addr(netif, &dhcp->offered_ip_addr, &sn_mask, &gw_addr);
   /* interface is used by routing now that an address is set */
 }
@@ -1364,6 +1457,10 @@ dhcp_stop(struct netif *netif)
       dhcp->pcb_allocated = 0;
     }
   }
+  
+   dhcp_cleanup(netif);
+  
+   dhcp_stop_timeout_check();
 }
 
 /*
