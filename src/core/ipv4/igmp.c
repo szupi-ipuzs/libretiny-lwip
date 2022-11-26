@@ -210,11 +210,11 @@ igmp_report_groups(struct netif *netif)
 void
 igmp_report_groups_leave(struct netif *netif)
 {
-  struct igmp_group *group = igmp_group_list;
+  struct igmp_group *group = netif_igmp_data(netif);
 
   while (group != NULL) {
-    if ((group->netif == netif) && (!ip_addr_cmp(&group->group_address, &allsystems)) && (group->last_reporter_flag)) {
-      igmp_send(group, IGMP_LEAVE_GROUP);
+    if ((!ip_addr_cmp(&group->group_address, &allsystems)) && (group->last_reporter_flag)) {
+      igmp_send(netif, group, IGMP_LEAVE_GROUP);
     }
     group = group->next;
   }

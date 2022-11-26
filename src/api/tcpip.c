@@ -438,26 +438,6 @@ tcpip_untimeout(sys_timeout_handler h, void *arg)
 err_t
 tcpip_send_msg_wait_sem(tcpip_callback_fn fn, void *apimsg, sys_sem_t *sem)
 {
-  struct tcpip_msg msg;
-#ifdef LWIP_DEBUG
-  /* catch functions that don't set err */
-  apimsg->msg.err = ERR_VAL;
-#endif
-  
-  if (sys_mbox_valid(&mbox)) {
-    UBaseType_t prio = uxTaskPriorityGet(NULL);       // add to prevent switch to tcpip thread between mbox post and sem wait
-    if((TCPIP_THREAD_PRIO + 1) > prio)
-      vTaskPrioritySet(NULL, TCPIP_THREAD_PRIO + 1);  // set priority higher than tcpip thread
-    msg.type = TCPIP_MSG_API;
-    msg.msg.apimsg = apimsg;
-    sys_mbox_post(&mbox, &msg);
-    sys_arch_sem_wait(&apimsg->msg.conn->op_completed, 0);
-    vTaskPrioritySet(NULL, prio);                     // restore to original priority
-    return apimsg->msg.err;
-  }
-  return ERR_VAL;
-}
-
 #if LWIP_TCPIP_CORE_LOCKING
   LWIP_UNUSED_ARG(sem);
   LOCK_TCPIP_CORE();
@@ -470,12 +450,17 @@ tcpip_send_msg_wait_sem(tcpip_callback_fn fn, void *apimsg, sys_sem_t *sem)
   LWIP_ASSERT("semaphore not initialized", sys_sem_valid(sem));
   LWIP_ASSERT("Invalid mbox", sys_mbox_valid_val(tcpip_mbox));
 
+  UBaseType_t prio = uxTaskPriorityGet(NULL);       // add to prevent switch to tcpip thread between mbox post and sem wait
+  if((TCPIP_THREAD_PRIO + 1) > prio)
+    vTaskPrioritySet(NULL, TCPIP_THREAD_PRIO + 1);  // set priority higher than tcpip thread
+
   TCPIP_MSG_VAR_ALLOC(msg);
   TCPIP_MSG_VAR_REF(msg).type = TCPIP_MSG_API;
   TCPIP_MSG_VAR_REF(msg).msg.api_msg.function = fn;
   TCPIP_MSG_VAR_REF(msg).msg.api_msg.msg = apimsg;
   sys_mbox_post(&tcpip_mbox, &TCPIP_MSG_VAR_REF(msg));
   sys_arch_sem_wait(sem, 0);
+  vTaskPrioritySet(NULL, prio);                     // restore to original priority
   TCPIP_MSG_VAR_FREE(msg);
   return ERR_OK;
 #endif /* LWIP_TCPIP_CORE_LOCKING */
