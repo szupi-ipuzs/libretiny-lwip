@@ -39,6 +39,7 @@
 
 #include "lwip/arch.h"
 #include "lwip/opt.h"
+#include <stdio.h> //Realtek add
 
 /**
  * @defgroup debugging_levels LWIP_DBG_MIN_LEVEL and LWIP_DBG_TYPES_ON values
@@ -140,6 +141,7 @@
 #endif
 
 #ifdef LWIP_DEBUG
+#define LWIP_PLATFORM_DIAG printf //Realtek add
 #define LWIP_DEBUGF(debug, message) do { \
                                if ( \
                                    ((debug) & LWIP_DBG_ON) && \

@@ -50,6 +50,8 @@
 #include "lwip/etharp.h"
 #include "netif/ethernet.h"
 
+#include "osdep_service.h"
+
 #define TCPIP_MSG_VAR_REF(name)     API_VAR_REF(name)
 #define TCPIP_MSG_VAR_DECLARE(name) API_VAR_DECLARE(struct tcpip_msg, name)
 #define TCPIP_MSG_VAR_ALLOC(name)   API_VAR_ALLOC(struct tcpip_msg, MEMP_TCPIP_MSG_API, name, ERR_MEM)
@@ -436,6 +438,26 @@ tcpip_untimeout(sys_timeout_handler h, void *arg)
 err_t
 tcpip_send_msg_wait_sem(tcpip_callback_fn fn, void *apimsg, sys_sem_t *sem)
 {
+  struct tcpip_msg msg;
+#ifdef LWIP_DEBUG
+  /* catch functions that don't set err */
+  apimsg->msg.err = ERR_VAL;
+#endif
+  
+  if (sys_mbox_valid(&mbox)) {
+    UBaseType_t prio = uxTaskPriorityGet(NULL);       // add to prevent switch to tcpip thread between mbox post and sem wait
+    if((TCPIP_THREAD_PRIO + 1) > prio)
+      vTaskPrioritySet(NULL, TCPIP_THREAD_PRIO + 1);  // set priority higher than tcpip thread
+    msg.type = TCPIP_MSG_API;
+    msg.msg.apimsg = apimsg;
+    sys_mbox_post(&mbox, &msg);
+    sys_arch_sem_wait(&apimsg->msg.conn->op_completed, 0);
+    vTaskPrioritySet(NULL, prio);                     // restore to original priority
+    return apimsg->msg.err;
+  }
+  return ERR_VAL;
+}
+
 #if LWIP_TCPIP_CORE_LOCKING
   LWIP_UNUSED_ARG(sem);
   LOCK_TCPIP_CORE();
@@ -613,8 +635,11 @@ tcpip_init(tcpip_init_done_fn initfunc, void *arg)
     LWIP_ASSERT("failed to create lock_tcpip_core", 0);
   }
 #endif /* LWIP_TCPIP_CORE_LOCKING */
-
-  sys_thread_new(TCPIP_THREAD_NAME, tcpip_thread, NULL, TCPIP_THREAD_STACKSIZE, TCPIP_THREAD_PRIO);
+#if CONFIG_USE_TCM_HEAP
+	sys_thread_new_tcm(TCPIP_THREAD_NAME, tcpip_thread, NULL, TCPIP_THREAD_STACKSIZE, TCPIP_THREAD_PRIO);
+#else
+	sys_thread_new(TCPIP_THREAD_NAME, tcpip_thread, NULL, TCPIP_THREAD_STACKSIZE, TCPIP_THREAD_PRIO);
+#endif
 }
 
 /**
