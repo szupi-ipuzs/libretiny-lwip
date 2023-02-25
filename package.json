@@ -1,0 +1,5 @@
+{
+  "name": "library-lwip",
+  "version": "2.0.0-amb1",
+  "description": "lwIP - A Lightweight TCPIP stack"
+}
