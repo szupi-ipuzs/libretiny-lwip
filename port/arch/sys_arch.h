@@ -32,7 +32,10 @@
 #ifndef __SYS_RTXC_H__
 #define __SYS_RTXC_H__
 
-#include "sys_rtos.h"
+#include <FreeRTOS.h>
+#include <queue.h>
+#include <semphr.h>
+#include <task.h>
 
 #define SYS_MBOX_NULL (xQueueHandle)0
 #define SYS_SEM_NULL  (xSemaphoreHandle)0
@@ -41,6 +44,7 @@
 typedef xSemaphoreHandle sys_sem_t;
 typedef xQueueHandle sys_mbox_t;
 typedef xTaskHandle sys_thread_t;
+typedef void * sys_mutex_t;
 
 typedef struct _sys_arch_state_t
 {

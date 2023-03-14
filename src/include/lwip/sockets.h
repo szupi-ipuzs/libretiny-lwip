@@ -40,7 +40,6 @@
 #define LWIP_HDR_SOCKETS_H
 
 #include "lwip/opt.h"
-#include "mem_pub.h"
 
 #if LWIP_SOCKET /* don't build if not configured for use in lwipopts.h */
 
@@ -418,7 +417,7 @@ typedef struct ip_mreq {
 #define FD_SET(n, p)  FDSETSAFESET(n, (p)->fd_bits[((n)-LWIP_SOCKET_OFFSET)/8] |=  (1 << (((n)-LWIP_SOCKET_OFFSET) & 7)))
 #define FD_CLR(n, p)  FDSETSAFESET(n, (p)->fd_bits[((n)-LWIP_SOCKET_OFFSET)/8] &= ~(1 << (((n)-LWIP_SOCKET_OFFSET) & 7)))
 #define FD_ISSET(n,p) FDSETSAFEGET(n, (p)->fd_bits[((n)-LWIP_SOCKET_OFFSET)/8] &   (1 << (((n)-LWIP_SOCKET_OFFSET) & 7)))
-#define FD_ZERO(p)    os_memset((void*)(p), 0, sizeof(*(p)))
+#define FD_ZERO(p)    memset((void*)(p), 0, sizeof(*(p)))
 
 typedef struct fd_set
 {
@@ -434,7 +433,7 @@ typedef struct fd_set
 /** LWIP_TIMEVAL_PRIVATE: if you want to use the struct timeval provided
  * by your system, set this to 0 and include <sys/time.h> in cc.h */
 #ifndef LWIP_TIMEVAL_PRIVATE
-#define LWIP_TIMEVAL_PRIVATE 0
+#define LWIP_TIMEVAL_PRIVATE 1
 #endif
 
 #if LWIP_TIMEVAL_PRIVATE

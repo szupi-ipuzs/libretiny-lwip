@@ -34,9 +34,8 @@
 #ifndef __CC_H__
 #define __CC_H__
 
-#include "typedef.h"
-#include "uart_pub.h"
-
+#include <stdint.h>
+#include <stdio.h>
 
 /*
  *   Typedefs for the types used by lwip -
@@ -80,12 +79,12 @@ typedef int sys_prot_t;
 #ifndef LWIP_PLATFORM_ASSERT
 #define LWIP_PLATFORM_ASSERT(x) \
     do \
-    {   fatal_prf("Assertion \"%s\" failed at line %d in %s\n", x, __LINE__, __FILE__); \
+    {   printf("Assertion \"%s\" failed at line %d in %s\n", x, __LINE__, __FILE__); \
     } while(0)
 #endif
 
 #ifndef LWIP_PLATFORM_DIAG
-#define LWIP_PLATFORM_DIAG(x) do {fatal_prf x ;} while(0)
+#define LWIP_PLATFORM_DIAG(x) do {printf x ;} while(0)
 #endif 
  
 #define U16_F "4d"
