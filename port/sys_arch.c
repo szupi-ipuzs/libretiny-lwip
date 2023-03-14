@@ -30,15 +30,16 @@
  *
  */
 
+#include "typedef.h"
+#include "sys_rtos.h"
+#include "rtos_pub.h"
 /* lwIP includes. */
 #include "lwip/debug.h"
 #include "lwip/def.h"
 #include "lwip/sys.h"
 #include "lwip/mem.h"
 #include "lwip/stats.h"
-#include "sys_rtos.h"
 #include "lwip/timeouts.h"
-#include "rtos_pub.h"
 #include "portmacro.h"
 
 #define CFG_ENABLE_LWIP_MUTEX      1
@@ -474,8 +475,8 @@ void sys_assert( const char *msg )
 	(void) msg;
 	
 	/*FSL:only needed for debugging*/
-	os_printf(msg);
-	os_printf("\n\r");		
+	printf(msg);
+	printf("\n\r");		
     vPortEnterCritical();
 	
     for(;;)
