@@ -56,6 +56,8 @@ extern "C" {
 
 struct tcp_pcb;
 
+extern struct tcp_pcb *tcp_tw_pcbs;     //Realtek add: /* List of all TCP PCBs in TIME-WAIT. */
+
 /** Function prototype for tcp accept callback functions. Called when a new
  * connection can be accepted on a listening pcb.
  *
@@ -150,6 +152,7 @@ typedef u16_t tcpflags_t;
 #else
 typedef u8_t tcpflags_t;
 #endif
+#define TCP_ALLFLAGS 0xffffU
 
 enum tcp_state {
   CLOSED      = 0,
@@ -371,7 +374,8 @@ void             tcp_poll    (struct tcp_pcb *pcb, tcp_poll_fn poll, u8_t interv
 /** @ingroup tcp_raw */
 #define          tcp_nagle_disable(pcb)   ((pcb)->flags |= TF_NODELAY)
 /** @ingroup tcp_raw */
-#define          tcp_nagle_enable(pcb)    ((pcb)->flags = (tcpflags_t)((pcb)->flags & ~TF_NODELAY))
+/*#define          tcp_nagle_enable(pcb)    ((pcb)->flags = (tcpflags_t)((pcb)->flags & ~TF_NODELAY))*/
+#define          tcp_nagle_enable(pcb)    ((pcb)->flags = (tcpflags_t)((pcb)->flags & (tcpflags_t)(~(TF_NODELAY)&TCP_ALLFLAGS))) /*Realtek add, to fix implicit cast warnings in IAR 8.30*/
 /** @ingroup tcp_raw */
 #define          tcp_nagle_disabled(pcb)  (((pcb)->flags & TF_NODELAY) != 0)
 
@@ -418,6 +422,11 @@ void             tcp_setprio (struct tcp_pcb *pcb, u8_t prio);
 
 err_t            tcp_output  (struct tcp_pcb *pcb);
 
+//Realtek add
+#if LWIP_RANDOMIZE_INITIAL_LOCAL_PORTS
+void             tcp_randomize_local_port   (void);
+#endif
+//Realtek add end
 
 const char* tcp_debug_state_str(enum tcp_state s);
 
