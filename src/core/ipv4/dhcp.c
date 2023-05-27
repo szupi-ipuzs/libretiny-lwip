@@ -562,6 +562,23 @@ dhcp_timeout(struct netif *netif)
       dhcp_bind(netif);
     }
 #endif /* DHCP_DOES_ARP_CHECK */
+  }
+  /* did not get response to renew request? */
+  else if (dhcp->state == DHCP_STATE_RENEWING) {
+    LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("dhcp_timeout(): RENEWING, DHCP request timed out\n"));
+    /* just retry renewal */
+    /* note that the rebind timer will eventually time-out if renew does not work */
+    dhcp_renew(netif);
+  /* did not get response to rebind request? */
+  } else if (dhcp->state == DHCP_STATE_REBINDING) {
+    LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("dhcp_timeout(): REBINDING, DHCP request timed out\n"));
+    if (dhcp->tries <= 8) {
+      dhcp_rebind(netif);
+    } else {
+      LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("dhcp_timeout(): RELEASING, DISCOVERING\n"));
+      dhcp_release(netif);
+      dhcp_discover(netif);
+    }
   } else if (dhcp->state == DHCP_STATE_REBOOTING) {
     if (dhcp->tries < REBOOT_TRIES) {
       dhcp_reboot(netif);
@@ -824,7 +841,7 @@ dhcp_start(struct netif *netif)
 
     /* store this dhcp client in the netif */
     netif_set_client_data(netif, LWIP_NETIF_CLIENT_DATA_INDEX_DHCP, dhcp);
-    LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE, ("dhcp_start(): allocated dhcp"));
+    LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE, ("dhcp_start(): allocated dhcp\n"));
   /* already has DHCP client attached */
   } else {
     LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("dhcp_start(): restarting DHCP configuration\n"));
@@ -1389,6 +1406,10 @@ dhcp_reboot(struct netif *netif)
     for (i = 0; i < LWIP_ARRAYSIZE(dhcp_discover_request_options); i++) {
       dhcp_option_byte(dhcp, dhcp_discover_request_options[i]);
     }
+
+#if LWIP_NETIF_HOSTNAME
+    dhcp_option_hostname(dhcp, netif);
+#endif /* LWIP_NETIF_HOSTNAME */
 
     dhcp_option_trailer(dhcp);
 
