@@ -407,6 +407,7 @@ typedef struct ipv6_mreq {
 #define IOC_INOUT       (IOC_IN|IOC_OUT)
                                         /* 0x20000000 distinguishes new &
                                            old ioctl's */
+#undef _IO  /* Added by Realtek */
 #define _IO(x,y)        ((long)(IOC_VOID|((x)<<8)|(y)))
 
 #define _IOR(x,y,t)     ((long)(IOC_OUT|((sizeof(t)&IOCPARM_MASK)<<16)|((x)<<8)|(y)))

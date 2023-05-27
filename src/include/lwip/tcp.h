@@ -478,6 +478,11 @@ void             tcp_setprio (struct tcp_pcb *pcb, u8_t prio);
 err_t            tcp_output  (struct tcp_pcb *pcb);
 
 err_t            tcp_tcp_get_tcp_addrinfo(struct tcp_pcb *pcb, int local, ip_addr_t *addr, u16_t *port);
+//Realtek add
+#if LWIP_RANDOMIZE_INITIAL_LOCAL_PORTS
+void             tcp_randomize_local_port   (void);
+#endif
+//Realtek add end
 
 #define tcp_dbg_get_tcp_state(pcb) ((pcb)->state)
 
